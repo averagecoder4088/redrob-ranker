@@ -1,14 +1,16 @@
-#!/usr/bin/env python3
 """
 rank.py — Redrob Hackathon Candidate Ranker
 
-Run:
-    python rank.py
+Usage:
+    python rank.py --candidates ./candidates.jsonl --out ./submission.csv --artifacts .
 
-Output:
-    ~/Desktop/[PUB] India_runs_data_and_ai_challenge/Result/submission_final.csv
+Artifacts required in --artifacts directory:
+    candidate_embeddings.npy
+    candidate_ids_ordered.npy
+    jd_embedding.npy
 """
 
+import argparse
 import hashlib
 import json
 import time
@@ -19,17 +21,7 @@ import faiss
 import numpy as np
 import pandas as pd
 
-# ── PATHS ─────────────────────────────────────────────────────────────────────
-BASE    = Path.home() / "Desktop" / "[PUB] India_runs_data_and_ai_challenge"
-RESULT  = BASE / "Result"
-
-CANDIDATES_PATH    = BASE / "India_runs_data_and_ai_challenge" / "candidates.jsonl"
-EMBEDDINGS_PATH    = RESULT / "candidate_embeddings.npy"
-IDS_PATH           = RESULT / "candidate_ids_ordered.npy"
-JD_PATH            = RESULT / "jd_embedding.npy"
-OUT_PATH           = RESULT / "submission_final.csv"
-
-TODAY = date(2026, 6, 19)
+TODAY = date.today(2026, 6, 19)
 
 # ── SCORING ───────────────────────────────────────────────────────────────────
 def compute_avg_tenure_months(career_history):
@@ -191,12 +183,19 @@ def generate_reasoning(candidate):
 
 # ── MAIN ──────────────────────────────────────────────────────────────────────
 def main():
-    t0 = time.time()
+    parser = argparse.ArgumentParser(description='Redrob candidate ranker')
+    parser.add_argument('--candidates', required=True, help='Path to candidates.jsonl')
+    parser.add_argument('--out',        required=True, help='Output CSV path')
+    parser.add_argument('--artifacts',  default='.',   help='Directory containing .npy files')
+    args = parser.parse_args()
+
+    t0       = time.time()
+    artifacts = Path(args.artifacts)
 
     print("Loading artifacts...")
-    embeddings  = np.load(EMBEDDINGS_PATH).astype('float32')
-    ids_ordered = np.load(IDS_PATH)
-    jd_emb      = np.load(JD_PATH).astype('float32')
+    embeddings  = np.load(artifacts / 'candidate_embeddings.npy').astype('float32')
+    ids_ordered = np.load(artifacts / 'candidate_ids_ordered.npy')
+    jd_emb      = np.load(artifacts / 'jd_embedding.npy').astype('float32')
     print(f"  embeddings: {embeddings.shape}  ({time.time()-t0:.1f}s)")
 
     print("Running FAISS search...")
@@ -210,7 +209,7 @@ def main():
 
     print("Loading candidate profiles...")
     candidate_lookup = {}
-    with open(CANDIDATES_PATH) as f:
+    with open(args.candidates) as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -261,7 +260,6 @@ def main():
     )
     submission['rank'] = submission.index + 1
 
-    # validate
     assert len(submission) == 100
     assert submission['candidate_id'].is_unique
     assert submission['rank'].tolist() == list(range(1, 101))
@@ -269,9 +267,9 @@ def main():
     assert (submission['reasoning'].fillna('').str.strip().ne('')).all()
     print("All validator checks passed.")
 
-    submission.to_csv(OUT_PATH, index=False)
+    submission.to_csv(args.out, index=False)
     print(f"\nDone in {time.time()-t0:.1f}s")
-    print(f"Saved to: {OUT_PATH}")
+    print(f"Saved to: {args.out}")
     print(submission[['rank','candidate_id','score','reasoning']].head(5).to_string(index=False))
 
 if __name__ == '__main__':
