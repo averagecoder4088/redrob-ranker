@@ -1,0 +1,45 @@
+team_name: "Clashers"
+
+primary_contact:
+  name: "Sanyam Vasan"
+  email: "sanyamvasan1234@gmail.com"
+  phone: "+91-9958277114"
+
+team_members:
+  - name: "Sanyam Vasan"
+    email: "sanyamvasan1234@gmail.com"
+    role: "Team Lead"
+
+github_repo: "https://github.com/averagecoder4088/redrob-ranker"
+
+sandbox_link: "https://colab.research.google.com/drive/1B7-xzcHesKTEXkisn8wEKTFeTXHut-FS?usp=sharing"
+
+reproduce_command: "python rank.py --candidates ./candidates.jsonl --out ./submission.csv --artifacts ."
+
+compute:
+  platform: "MacBook Air M4"
+  cpu_cores: 10
+  ram_gb: 16
+  python_version: "3.13.9"
+  os: "macOS"
+  uses_gpu_for_inference: false
+  has_network_during_ranking: false
+  pre_computation_required: true
+  pre_computation_time_minutes: 15
+
+ai_tools_used:
+  - "Claude"
+  - "ChatGPT"
+
+ai_usage_summary: |
+  Used Claude (Sonnet 4.6) and ChatGPT for coding assistance, debugging, architecture discussions, scoring audits, and review of ranking methodology. Candidate profiles were analyzed with AI assistance during feature validation and quality review. Final ranking logic, feature selection, implementation, and submission generation were performed by the participant.
+
+methodology_summary: |
+  Semantic retrieval pipeline using BAAI/bge-base-en-v1.5 embeddings with FAISS cosine-similarity search over 46,528 candidate profiles. Preprocessing removed consulting-only and honeypot candidates before embedding generation. Final ranking score combines 70% semantic similarity, 15% experience score (years of experience and job stability), and 15% behavior score (recruiter responsiveness, recent activity, notice period, GitHub activity, interview completion, and engagement signals). Precomputed embeddings enable end-to-end ranking in under 3 seconds on CPU. Reasoning strings are deterministic, candidate-specific, and generated only from profile facts.
+
+declarations:
+  read_submission_spec: true
+  code_is_original_work: true
+  no_collusion: true
+  honeypot_check_done: true
+  reproduction_tested: true
