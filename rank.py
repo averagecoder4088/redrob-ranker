@@ -21,7 +21,7 @@ import faiss
 import numpy as np
 import pandas as pd
 
-TODAY = date.today(2026, 6, 19)
+TODAY = date(2026, 6, 19)
 
 # ── SCORING ───────────────────────────────────────────────────────────────────
 def compute_avg_tenure_months(career_history):
@@ -193,9 +193,9 @@ def main():
     artifacts = Path(args.artifacts)
 
     print("Loading artifacts...")
-    embeddings  = np.load(artifacts / 'candidate_embeddings.npy').astype('float32')
-    ids_ordered = np.load(artifacts / 'candidate_ids_ordered.npy')
-    jd_emb      = np.load(artifacts / 'jd_embedding.npy').astype('float32')
+    embeddings  = np.load(artifacts / 'candidate_embeddings.npy', allow_pickle=True).astype('float32')
+    ids_ordered = np.load(artifacts / 'candidate_ids_ordered.npy', allow_pickle=True)
+    jd_emb      = np.load(artifacts / 'jd_embedding.npy', allow_pickle=True).astype('float32')
     print(f"  embeddings: {embeddings.shape}  ({time.time()-t0:.1f}s)")
 
     print("Running FAISS search...")
