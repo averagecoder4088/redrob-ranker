@@ -224,23 +224,37 @@ def load_artifacts():
     index = faiss.IndexFlatIP(embeddings.shape[1])
     index.add(embeddings)
 
-    candidate_lookup = {}
-    with open(candidates_file_path) as f:
-        for line in f:
-            line = line.strip()
+    candidate_offsets = {}
+    with open(candidates_file_path, 'rb') as f:
+        while True:
+            pos = f.tell()
+            line = f.readline()
             if not line:
+                break
+            if not line.strip():
                 continue
             c = json.loads(line)
-            candidate_lookup[c['candidate_id']] = c
+            candidate_offsets[c['candidate_id']] = pos
 
     return {
         "index": index,
         "ids_ordered": ids_ordered,
         "jd_embedding_default": jd_embedding_default,
-        "candidate_lookup": candidate_lookup,
+        "candidate_offsets": candidate_offsets,
+        "candidates_file_path": candidates_file_path,
         "loaded_at": time.time(),
         "load_duration_s": round(time.time() - t0, 2),
     }
+def get_candidate(candidates_file_path, candidate_offsets, candidate_id):
+    """Reads one candidate's JSON line on-demand by seeking to its known
+    byte offset, instead of holding all candidates in memory."""
+    offset = candidate_offsets.get(candidate_id)
+    if offset is None:
+        return None
+    with open(candidates_file_path, 'rb') as f:
+        f.seek(offset)
+        line = f.readline()
+    return json.loads(line)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -281,7 +295,7 @@ async def health():
         return {"status": "not ready"}, 503
     return {
         "status": "ok",
-        "candidates_loaded": len(data["candidate_lookup"]),
+        "candidates_loaded": len(data["candidate_offsets"]),
         "loaded_at": data["loaded_at"],
     }
 
@@ -294,7 +308,7 @@ async def reload_artifacts():
         raise HTTPException(status_code=500, detail=f"Reload failed: {e}")
     return {
         "status": "reloaded",
-        "candidates_loaded": len(app.state.data["candidate_lookup"]),
+        "candidates_loaded": len(app.state.data["candidate_offsets"]),
         "load_duration_s": app.state.data["load_duration_s"],
     }
 
@@ -304,7 +318,8 @@ async def rank(request: RankRequest):
     data = app.state.data
     index = data["index"]
     ids_ordered = data["ids_ordered"]
-    candidate_lookup = data["candidate_lookup"]
+    candidate_offsets = data["candidate_offsets"]
+    candidates_file_path = data["candidates_file_path"]
 
     jd_emb = (
         np.array([request.jd_embedding], dtype='float32')
@@ -319,7 +334,7 @@ async def rank(request: RankRequest):
     # Step 2: score each candidate
     rows = []
     for cid, cosine in cosine_map.items():
-        c = candidate_lookup.get(cid)
+        c = get_candidate(candidates_file_path, candidate_offsets, cid)
         if c is None:
             continue
         yrs = c['profile']['years_of_experience']
