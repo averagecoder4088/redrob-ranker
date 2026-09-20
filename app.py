@@ -217,9 +217,15 @@ def load_artifacts():
     embeddings_path = ensure_file("candidate_embeddings.npy", ARTIFACTS_DIR / "candidate_embeddings.npy")
     candidates_file_path = ensure_file("candidates.jsonl", CANDIDATES_PATH)
 
-    embeddings = np.load(embeddings_path, allow_pickle=True).astype('float32')
+    embeddings = np.load(embeddings_path, mmap_mode='r')
+    if embeddings.dtype != np.float32:
+        embeddings = np.asarray(embeddings, dtype='float32')
+
     ids_ordered = np.load(ARTIFACTS_DIR / 'candidate_ids_ordered.npy', allow_pickle=True)
-    jd_embedding_default = np.load(ARTIFACTS_DIR / 'jd_embedding.npy', allow_pickle=True).astype('float32')
+
+    jd_embedding_default = np.load(ARTIFACTS_DIR / 'jd_embedding.npy', mmap_mode='r')
+    if jd_embedding_default.dtype != np.float32:
+        jd_embedding_default = np.asarray(jd_embedding_default, dtype='float32')
 
     index = faiss.IndexFlatIP(embeddings.shape[1])
     index.add(embeddings)
