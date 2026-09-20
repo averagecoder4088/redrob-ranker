@@ -4,4 +4,4 @@ pandas>=2.0.0
 fastapi
 uvicorn[standard]
 pydantic
-echo "huggingface_hub" >> requirements.txt
+huggingface_hub
