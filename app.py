@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
 from typing import Optional
+from huggingface_hub import hf_hub_download
 
 import faiss
 import numpy as np
@@ -24,8 +25,7 @@ from pydantic import BaseModel, Field
 TODAY = date(2026, 6, 19)
 
 ARTIFACTS_DIR = Path(".")
-CANDIDATES_PATH = Path("/Users/sanyamvasan/Downloads/[PUB] India_runs_data_and_ai_challenge/India_runs_data_and_ai_challenge/candidates.jsonl")
-
+CANDIDATES_PATH = Path("./candidates.jsonl")
 # ── SCORING (ported directly from rank.py, unchanged) ──────────────────────
 def compute_avg_tenure_months(career_history):
     company_durations = {}
@@ -195,21 +195,37 @@ def generate_reasoning(candidate):
 
 
 # ── ARTIFACT LOADING (the "Option A" state-management piece) ───────────────
+HF_REPO_ID = "averagecoder697922/redrob-ranker-artifacts"
+
+def ensure_file(filename: str, local_path: Path) -> Path:
+    """Downloads a file from the Hugging Face dataset repo if it's not already present locally."""
+    if local_path.exists():
+        return local_path
+    print(f"'{filename}' not found locally — downloading from Hugging Face...")
+    downloaded_path = hf_hub_download(
+        repo_id=HF_REPO_ID,
+        filename=filename,
+        repo_type="dataset",
+        local_dir=str(local_path.parent),
+    )
+    return Path(downloaded_path)
+
+
 def load_artifacts():
-    """Loads embeddings, FAISS index, and candidate profiles into memory.
-    Called once at startup, and again if /reload is hit."""
     t0 = time.time()
 
-    embeddings = np.load(ARTIFACTS_DIR / 'candidate_embeddings.npy', allow_pickle=True).astype('float32')
+    embeddings_path = ensure_file("candidate_embeddings.npy", ARTIFACTS_DIR / "candidate_embeddings.npy")
+    candidates_file_path = ensure_file("candidates.jsonl", CANDIDATES_PATH)
+
+    embeddings = np.load(embeddings_path, allow_pickle=True).astype('float32')
     ids_ordered = np.load(ARTIFACTS_DIR / 'candidate_ids_ordered.npy', allow_pickle=True)
     jd_embedding_default = np.load(ARTIFACTS_DIR / 'jd_embedding.npy', allow_pickle=True).astype('float32')
 
     index = faiss.IndexFlatIP(embeddings.shape[1])
     index.add(embeddings)
 
-    # Load every candidate profile into memory, keyed by ID, for fast lookup later.
     candidate_lookup = {}
-    with open(CANDIDATES_PATH) as f:
+    with open(candidates_file_path) as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -225,7 +241,6 @@ def load_artifacts():
         "loaded_at": time.time(),
         "load_duration_s": round(time.time() - t0, 2),
     }
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
